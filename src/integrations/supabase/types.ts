@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       meetings: {
         Row: {
+          agenda: Json | null
           ai_action_items: Json | null
           ai_summary: string | null
           created_at: string
@@ -24,12 +25,15 @@ export type Database = {
           duration_minutes: number | null
           id: string
           notes: string | null
+          participants: Json | null
+          reminder_minutes: number | null
           status: string
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          agenda?: Json | null
           ai_action_items?: Json | null
           ai_summary?: string | null
           created_at?: string
@@ -38,12 +42,15 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           notes?: string | null
+          participants?: Json | null
+          reminder_minutes?: number | null
           status?: string
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          agenda?: Json | null
           ai_action_items?: Json | null
           ai_summary?: string | null
           created_at?: string
@@ -52,6 +59,8 @@ export type Database = {
           duration_minutes?: number | null
           id?: string
           notes?: string | null
+          participants?: Json | null
+          reminder_minutes?: number | null
           status?: string
           title?: string
           updated_at?: string

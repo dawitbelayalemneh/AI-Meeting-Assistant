@@ -1,5 +1,5 @@
-import { format } from "date-fns";
-import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2 } from "lucide-react";
+import { format, formatDistanceToNow, isBefore, addMinutes } from "date-fns";
+import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2, Users, ListChecks, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,6 +13,9 @@ interface Meeting {
   ai_summary: string | null;
   ai_action_items: any;
   status: string;
+  participants: any;
+  agenda: any;
+  reminder_minutes: number | null;
 }
 
 interface MeetingCardProps {
@@ -28,9 +31,33 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
+function getReminderStatus(date: string, reminderMinutes: number | null) {
+  if (!reminderMinutes || reminderMinutes === 0) return null;
+  const meetingDate = new Date(date);
+  const reminderTime = addMinutes(meetingDate, -reminderMinutes);
+  const now = new Date();
+  if (isBefore(meetingDate, now)) return null; // meeting passed
+  if (isBefore(now, reminderTime)) {
+    return { label: `Reminder ${formatDistanceToNow(reminderTime, { addSuffix: true })}`, urgent: false };
+  }
+  return { label: `Starting ${formatDistanceToNow(meetingDate, { addSuffix: true })}`, urgent: true };
+}
+
 export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingCardProps) {
+  const participants = Array.isArray(meeting.participants) ? meeting.participants : [];
+  const agenda = Array.isArray(meeting.agenda) ? meeting.agenda : [];
+  const reminder = meeting.status === "scheduled" ? getReminderStatus(meeting.date, meeting.reminder_minutes) : null;
+
   return (
     <div className="glass-card p-5 animate-slide-up hover:shadow-lg transition-shadow">
+      {/* Reminder banner */}
+      {reminder && (
+        <div className={`-mx-5 -mt-5 mb-4 px-5 py-2 rounded-t-xl flex items-center gap-2 text-xs font-medium ${reminder.urgent ? "bg-warning/15 text-warning" : "bg-primary/5 text-primary"}`}>
+          <Bell className="w-3 h-3" />
+          {reminder.label}
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
           <h3 className="font-heading font-semibold text-foreground text-lg">{meeting.title}</h3>
@@ -43,17 +70,52 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
         </Badge>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4 flex-wrap">
         <span className="flex items-center gap-1">
           <Calendar className="w-3.5 h-3.5" />
-          {format(new Date(meeting.date), "MMM d, yyyy")}
+          {format(new Date(meeting.date), "MMM d, yyyy 'at' h:mm a")}
         </span>
         <span className="flex items-center gap-1">
           <Clock className="w-3.5 h-3.5" />
           {meeting.duration_minutes || 30} min
         </span>
+        {participants.length > 0 && (
+          <span className="flex items-center gap-1">
+            <Users className="w-3.5 h-3.5" />
+            {participants.length} participant{participants.length !== 1 ? "s" : ""}
+          </span>
+        )}
       </div>
 
+      {/* Participants */}
+      {participants.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {(participants as string[]).map((p) => (
+            <Badge key={p} variant="secondary" className="text-xs">
+              {p}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Agenda */}
+      {agenda.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-secondary/30 border border-border">
+          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+            <ListChecks className="w-3 h-3" /> Agenda
+          </p>
+          <ol className="space-y-1">
+            {(agenda as string[]).map((item, i) => (
+              <li key={i} className="text-sm text-foreground flex items-start gap-2">
+                <span className="font-medium text-muted-foreground">{i + 1}.</span>
+                {item}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* AI Summary */}
       {meeting.ai_summary && (
         <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
           <p className="text-xs font-medium text-primary mb-1 flex items-center gap-1">
@@ -63,6 +125,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
         </div>
       )}
 
+      {/* AI Action Items */}
       {meeting.ai_action_items && Array.isArray(meeting.ai_action_items) && meeting.ai_action_items.length > 0 && (
         <div className="mb-4 p-3 rounded-lg bg-accent/5 border border-accent/10">
           <p className="text-xs font-medium text-accent mb-2 flex items-center gap-1">
