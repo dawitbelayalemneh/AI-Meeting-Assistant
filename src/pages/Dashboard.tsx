@@ -1,15 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { MeetingsPerWeekChart, TaskStatusChart } from "@/components/DashboardCharts";
+import { ActionItemsPanel, CompletedSummariesPanel } from "@/components/DashboardPanels";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell, FileText } from "lucide-react";
-import { isBefore, addMinutes, formatDistanceToNow } from "date-fns";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle } from "lucide-react";
+import { isBefore, addMinutes, formatDistanceToNow, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
