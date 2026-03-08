@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,7 +6,8 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell } from "lucide-react";
+import { isBefore, addMinutes } from "date-fns";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -26,31 +27,43 @@ const Dashboard = () => {
     },
   });
 
+  // Client-side reminder notifications
+  useEffect(() => {
+    if (meetings.length === 0) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      meetings.forEach((m) => {
+        if (m.status !== "scheduled" || !m.reminder_minutes || m.reminder_minutes === 0) return;
+        const meetingDate = new Date(m.date);
+        const reminderTime = addMinutes(meetingDate, -m.reminder_minutes);
+        // Trigger if within 30 seconds of reminder time
+        const diff = Math.abs(now.getTime() - reminderTime.getTime());
+        if (diff < 30000 && isBefore(now, meetingDate)) {
+          toast.info(`Reminder: "${m.title}" is coming up!`, { id: `reminder-${m.id}`, duration: 10000 });
+        }
+      });
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [meetings]);
+
   const saveMutation = useMutation({
     mutationFn: async (formData: any) => {
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        date: new Date(formData.date).toISOString(),
+        duration_minutes: formData.duration_minutes,
+        notes: formData.notes,
+        status: formData.status,
+        participants: formData.participants,
+        agenda: formData.agenda,
+        reminder_minutes: formData.reminder_minutes,
+      };
       if (editingMeeting) {
-        const { error } = await supabase
-          .from("meetings")
-          .update({
-            title: formData.title,
-            description: formData.description,
-            date: new Date(formData.date).toISOString(),
-            duration_minutes: formData.duration_minutes,
-            notes: formData.notes,
-            status: formData.status,
-          })
-          .eq("id", editingMeeting.id);
+        const { error } = await supabase.from("meetings").update(payload).eq("id", editingMeeting.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("meetings").insert({
-          user_id: user!.id,
-          title: formData.title,
-          description: formData.description,
-          date: new Date(formData.date).toISOString(),
-          duration_minutes: formData.duration_minutes,
-          notes: formData.notes,
-          status: formData.status,
-        });
+        const { error } = await supabase.from("meetings").insert({ ...payload, user_id: user!.id });
         if (error) throw error;
       }
     },
@@ -79,7 +92,6 @@ const Dashboard = () => {
     mutationFn: async (meetingId: string) => {
       const meeting = meetings.find((m) => m.id === meetingId);
       if (!meeting?.notes) throw new Error("No notes to analyze");
-
       const { data, error } = await supabase.functions.invoke("analyze-meeting", {
         body: { meetingId, notes: meeting.notes, title: meeting.title },
       });
@@ -104,7 +116,12 @@ const Dashboard = () => {
   };
 
   const scheduled = meetings.filter((m) => m.status === "scheduled");
-  const completed = meetings.filter((m) => m.status === "completed");
+  const upcomingSoon = meetings.filter((m) => {
+    if (m.status !== "scheduled") return false;
+    const meetingDate = new Date(m.date);
+    const now = new Date();
+    return isBefore(now, meetingDate) && meetingDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,9 +146,9 @@ const Dashboard = () => {
       {/* Main */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground">Total Meetings</p>
+            <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-3xl font-heading font-bold text-foreground mt-1">{meetings.length}</p>
           </div>
           <div className="glass-card p-5">
@@ -140,7 +157,13 @@ const Dashboard = () => {
           </div>
           <div className="glass-card p-5">
             <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> AI Analyzed
+              <Bell className="w-3.5 h-3.5" /> Today
+            </p>
+            <p className="text-3xl font-heading font-bold text-warning mt-1">{upcomingSoon.length}</p>
+          </div>
+          <div className="glass-card p-5">
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5" /> Analyzed
             </p>
             <p className="text-3xl font-heading font-bold text-accent mt-1">
               {meetings.filter((m) => m.ai_summary).length}
