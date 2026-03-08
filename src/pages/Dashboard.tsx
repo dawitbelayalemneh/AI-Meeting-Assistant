@@ -258,8 +258,8 @@ const Dashboard = () => {
               <Button variant="outline" size="sm" onClick={() => { navigate("/summaries"); setMobileMenuOpen(false); }} className="justify-start">
                 <FileText className="w-4 h-4 mr-2" /> Summaries
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { navigate("/docs"); setMobileMenuOpen(false); }} className="justify-start">
-                <BookOpen className="w-4 h-4 mr-2" /> Documentation
+              <Button variant="outline" size="sm" onClick={() => { navigate("/about"); setMobileMenuOpen(false); }} className="justify-start">
+                <BookOpen className="w-4 h-4 mr-2" /> About
               </Button>
               <Button variant="outline" size="sm" onClick={() => { signOut(); setMobileMenuOpen(false); }} className="justify-start text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sign Out
