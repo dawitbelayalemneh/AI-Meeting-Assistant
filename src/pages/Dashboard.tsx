@@ -104,10 +104,11 @@ const Dashboard = () => {
 
   const aiMutation = useMutation({
     mutationFn: async (meetingId: string) => {
+      setAnalyzingId(meetingId);
       const meeting = meetings.find((m) => m.id === meetingId);
       if (!meeting?.notes) throw new Error("No notes to analyze");
       const { data, error } = await supabase.functions.invoke("analyze-meeting", {
-        body: { meetingId, notes: meeting.notes, title: meeting.title },
+        body: { meetingId, notes: meeting.notes, title: meeting.title, agenda: meeting.agenda },
       });
       if (error) throw error;
       return data;
@@ -115,8 +116,12 @@ const Dashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("AI analysis complete!");
+      setAnalyzingId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => {
+      toast.error(err.message);
+      setAnalyzingId(null);
+    },
   });
 
   const handleEdit = (meeting: any) => {
