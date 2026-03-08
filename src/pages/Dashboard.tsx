@@ -12,7 +12,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle, Menu, X } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle, Menu, X, BookOpen } from "lucide-react";
 import { isBefore, addMinutes, formatDistanceToNow, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
