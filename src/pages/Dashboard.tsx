@@ -4,19 +4,23 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
+import { NotificationCenter } from "@/components/NotificationCenter";
+import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Plus, Calendar, LogOut, Sparkles, Bell, FileText } from "lucide-react";
-import { isBefore, addMinutes } from "date-fns";
+import { isBefore, addMinutes, formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { addNotification } = useNotifications();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<any>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const firedReminders = useRef<Set<string>>(new Set());
 
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ["meetings"],
@@ -30,24 +34,61 @@ const Dashboard = () => {
     },
   });
 
-  // Client-side reminder notifications
+  // Multi-tier reminder system
   useEffect(() => {
     if (meetings.length === 0) return;
-    const interval = setInterval(() => {
+
+    const checkReminders = () => {
       const now = new Date();
       meetings.forEach((m) => {
-        if (m.status !== "scheduled" || !m.reminder_minutes || m.reminder_minutes === 0) return;
+        if (m.status !== "scheduled") return;
         const meetingDate = new Date(m.date);
-        const reminderTime = addMinutes(meetingDate, -m.reminder_minutes);
-        // Trigger if within 30 seconds of reminder time
-        const diff = Math.abs(now.getTime() - reminderTime.getTime());
-        if (diff < 30000 && isBefore(now, meetingDate)) {
-          toast.info(`Reminder: "${m.title}" is coming up!`, { id: `reminder-${m.id}`, duration: 10000 });
+        if (isBefore(meetingDate, now)) return;
+
+        const reminderMin = m.reminder_minutes || 15;
+        // Check configured reminder
+        const reminderTime = addMinutes(meetingDate, -reminderMin);
+        const reminderKey = `${m.id}-${reminderMin}`;
+        const diffReminder = Math.abs(now.getTime() - reminderTime.getTime());
+
+        if (diffReminder < 30000 && !firedReminders.current.has(reminderKey)) {
+          firedReminders.current.add(reminderKey);
+          const timeLabel = reminderMin >= 60 ? `${reminderMin / 60} hour${reminderMin >= 120 ? "s" : ""}` : `${reminderMin} minutes`;
+          addNotification({
+            type: "reminder",
+            title: `Meeting in ${timeLabel}`,
+            message: `"${m.title}" starts ${formatDistanceToNow(meetingDate, { addSuffix: true })}`,
+            meetingId: m.id,
+          });
+          toast.warning(`⏰ "${m.title}" starts in ${timeLabel}!`, {
+            id: reminderKey,
+            duration: 15000,
+          });
+        }
+
+        // Also fire a "starting now" alert at 1 min before
+        const startingSoonKey = `${m.id}-starting`;
+        const diffStart = meetingDate.getTime() - now.getTime();
+        if (diffStart > 0 && diffStart < 60000 && !firedReminders.current.has(startingSoonKey)) {
+          firedReminders.current.add(startingSoonKey);
+          addNotification({
+            type: "reminder",
+            title: "Meeting starting now!",
+            message: `"${m.title}" is about to begin`,
+            meetingId: m.id,
+          });
+          toast.warning(`🔴 "${m.title}" is starting now!`, {
+            id: startingSoonKey,
+            duration: 20000,
+          });
         }
       });
-    }, 30000);
+    };
+
+    checkReminders();
+    const interval = setInterval(checkReminders, 15000);
     return () => clearInterval(interval);
-  }, [meetings]);
+  }, [meetings, addNotification]);
 
   const saveMutation = useMutation({
     mutationFn: async (formData: any) => {
@@ -81,9 +122,14 @@ const Dashboard = () => {
       setEditingMeeting(null);
       toast.success(wasEditing ? "Meeting updated" : "Meeting created");
 
-      // Auto-analyze when meeting is completed and has notes but no summary yet
       if (savedMeeting.status === "completed" && savedMeeting.notes && !savedMeeting.ai_summary) {
         toast.info("Generating AI summary...");
+        addNotification({
+          type: "info",
+          title: "AI analysis started",
+          message: `Analyzing "${savedMeeting.title}"...`,
+          meetingId: savedMeeting.id,
+        });
         aiMutation.mutate(savedMeeting.id);
       }
     },
@@ -111,11 +157,17 @@ const Dashboard = () => {
         body: { meetingId, notes: meeting.notes, title: meeting.title, agenda: meeting.agenda },
       });
       if (error) throw error;
-      return data;
+      return { data, title: meeting.title, meetingId };
     },
-    onSuccess: () => {
+    onSuccess: ({ title, meetingId }) => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("AI analysis complete!");
+      addNotification({
+        type: "ai_ready",
+        title: "AI Summary Ready",
+        message: `Summary for "${title}" is now available with key points, decisions, and action items.`,
+        meetingId,
+      });
       setAnalyzingId(null);
     },
     onError: (err: any) => {
@@ -153,7 +205,8 @@ const Dashboard = () => {
             </div>
             <h1 className="text-xl font-heading font-bold text-foreground">MeetingAI</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
             <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="w-4 h-4" />
