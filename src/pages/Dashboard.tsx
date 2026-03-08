@@ -190,12 +190,23 @@ const Dashboard = () => {
   };
 
   const scheduled = meetings.filter((m) => m.status === "scheduled");
-  const upcomingSoon = meetings.filter((m) => {
-    if (m.status !== "scheduled") return false;
+  const completed = meetings.filter((m) => m.status === "completed");
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    return meetings
+      .filter((m) => m.status === "scheduled" && isBefore(now, new Date(m.date)))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [meetings]);
+  const upcomingSoon = upcoming.filter((m) => {
     const meetingDate = new Date(m.date);
     const now = new Date();
-    return isBefore(now, meetingDate) && meetingDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
+    return meetingDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
   });
+  const allActionItems = useMemo(() => {
+    return meetings.reduce((total, m) => {
+      return total + (Array.isArray(m.ai_action_items) ? m.ai_action_items.length : 0);
+    }, 0);
+  }, [meetings]);
 
   return (
     <div className="min-h-screen bg-background">
