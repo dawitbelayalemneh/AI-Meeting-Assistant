@@ -224,6 +224,7 @@ const Dashboard = () => {
                 onEdit={handleEdit}
                 onDelete={(id) => deleteMutation.mutate(id)}
                 onAiProcess={(id) => aiMutation.mutate(id)}
+                aiLoading={analyzingId === meeting.id}
               />
             ))}
           </div>
