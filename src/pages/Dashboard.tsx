@@ -208,6 +208,31 @@ const Dashboard = () => {
     }, 0);
   }, [meetings]);
 
+  const renderMeetingGrid = (list: typeof meetings) => {
+    if (list.length === 0) {
+      return (
+        <div className="text-center py-12 glass-card">
+          <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">No meetings in this category</p>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {list.map((meeting) => (
+          <MeetingCard
+            key={meeting.id}
+            meeting={meeting}
+            onEdit={handleEdit}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            onAiProcess={(id) => aiMutation.mutate(id)}
+            aiLoading={analyzingId === meeting.id}
+          />
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
