@@ -16,7 +16,7 @@ const Documentation = () => {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
               <Calendar className="w-4 h-4 text-primary-foreground" />
             </div>
-            <h1 className="text-lg font-heading font-bold text-foreground">MeetingAI — Documentation</h1>
+            <h1 className="text-lg font-heading font-bold text-foreground">MeetingAI — About & How to Use</h1>
           </div>
         </div>
       </header>
