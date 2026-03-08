@@ -62,19 +62,30 @@ const Dashboard = () => {
         agenda: formData.agenda,
         reminder_minutes: formData.reminder_minutes,
       };
+      let savedMeeting: any = null;
       if (editingMeeting) {
-        const { error } = await supabase.from("meetings").update(payload).eq("id", editingMeeting.id);
+        const { data, error } = await supabase.from("meetings").update(payload).eq("id", editingMeeting.id).select().single();
         if (error) throw error;
+        savedMeeting = data;
       } else {
-        const { error } = await supabase.from("meetings").insert({ ...payload, user_id: user!.id });
+        const { data, error } = await supabase.from("meetings").insert({ ...payload, user_id: user!.id }).select().single();
         if (error) throw error;
+        savedMeeting = data;
       }
+      return savedMeeting;
     },
-    onSuccess: () => {
+    onSuccess: (savedMeeting) => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       setDialogOpen(false);
+      const wasEditing = !!editingMeeting;
       setEditingMeeting(null);
-      toast.success(editingMeeting ? "Meeting updated" : "Meeting created");
+      toast.success(wasEditing ? "Meeting updated" : "Meeting created");
+
+      // Auto-analyze when meeting is completed and has notes but no summary yet
+      if (savedMeeting.status === "completed" && savedMeeting.notes && !savedMeeting.ai_summary) {
+        toast.info("Generating AI summary...");
+        aiMutation.mutate(savedMeeting.id);
+      }
     },
     onError: (err: any) => toast.error(err.message),
   });
