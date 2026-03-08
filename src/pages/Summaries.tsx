@@ -2,12 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
-import { Sparkles, Lightbulb, Gavel, CheckCircle2, Calendar, ArrowLeft, Search } from "lucide-react";
+import { Sparkles, Lightbulb, Gavel, CheckCircle2, Calendar, ArrowLeft, Search, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { exportMeetingPdf } from "@/lib/exportPdf";
 
 const Summaries = () => {
   const { user } = useAuth();
@@ -36,21 +37,21 @@ const Summaries = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
-            <h1 className="text-xl font-heading font-bold text-foreground">Meeting Summaries</h1>
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="w-5 h-5 text-primary shrink-0" />
+            <h1 className="text-lg sm:text-xl font-heading font-bold text-foreground truncate">Meeting Summaries</h1>
           </div>
-          <Badge variant="secondary" className="ml-auto">{filtered.length} summaries</Badge>
+          <Badge variant="secondary" className="ml-auto shrink-0">{filtered.length}</Badge>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Search */}
-        <div className="relative mb-8">
+        <div className="relative mb-6 sm:mb-8">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search summaries..."
@@ -73,42 +74,47 @@ const Summaries = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {filtered.map((meeting) => {
               const keyPoints = Array.isArray(meeting.ai_key_points) ? meeting.ai_key_points : [];
               const decisions = Array.isArray(meeting.ai_decisions) ? meeting.ai_decisions : [];
               const actionItems = Array.isArray(meeting.ai_action_items) ? meeting.ai_action_items : [];
 
               return (
-                <div key={meeting.id} className="glass-card-elevated p-6 animate-slide-up">
+                <div key={meeting.id} className="glass-card-elevated p-4 sm:p-6 animate-slide-up">
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="font-heading font-semibold text-foreground text-xl">{meeting.title}</h2>
-                      <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5" />
+                  <div className="flex items-start justify-between mb-4 gap-2">
+                    <div className="min-w-0">
+                      <h2 className="font-heading font-semibold text-foreground text-lg sm:text-xl truncate">{meeting.title}</h2>
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-1 flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
                         {format(new Date(meeting.date), "MMMM d, yyyy 'at' h:mm a")}
                       </p>
                     </div>
-                    <Badge variant="outline" className="bg-success/10 text-success border-success/20">
-                      {meeting.status}
-                    </Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => exportMeetingPdf(meeting)}>
+                        <Download className="w-4 h-4 text-muted-foreground" />
+                      </Button>
+                      <Badge variant="outline" className="bg-success/10 text-success border-success/20 text-xs">
+                        {meeting.status}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Summary */}
                   {meeting.ai_summary && (
-                    <div className="mb-5 p-4 rounded-lg bg-primary/5 border border-primary/10">
+                    <div className="mb-5 p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/10">
                       <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1.5 uppercase tracking-wide">
                         <Sparkles className="w-3.5 h-3.5" /> Executive Summary
                       </p>
-                      <p className="text-foreground leading-relaxed">{meeting.ai_summary}</p>
+                      <p className="text-sm sm:text-base text-foreground leading-relaxed">{meeting.ai_summary}</p>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     {/* Key Points */}
                     {keyPoints.length > 0 && (
-                      <div className="p-4 rounded-lg bg-primary/5 border border-primary/10">
+                      <div className="p-3 sm:p-4 rounded-lg bg-primary/5 border border-primary/10">
                         <p className="text-xs font-semibold text-primary mb-3 flex items-center gap-1.5 uppercase tracking-wide">
                           <Lightbulb className="w-3.5 h-3.5" /> Key Points
                         </p>
@@ -116,7 +122,7 @@ const Summaries = () => {
                           {(keyPoints as string[]).map((item, i) => (
                             <li key={i} className="text-sm text-foreground flex items-start gap-2">
                               <span className="text-primary mt-0.5 shrink-0">•</span>
-                              <span>{item}</span>
+                              <span className="break-words">{item}</span>
                             </li>
                           ))}
                         </ul>
@@ -125,7 +131,7 @@ const Summaries = () => {
 
                     {/* Decisions */}
                     {decisions.length > 0 && (
-                      <div className="p-4 rounded-lg bg-warning/5 border border-warning/10">
+                      <div className="p-3 sm:p-4 rounded-lg bg-warning/5 border border-warning/10">
                         <p className="text-xs font-semibold text-warning mb-3 flex items-center gap-1.5 uppercase tracking-wide">
                           <Gavel className="w-3.5 h-3.5" /> Decisions
                         </p>
@@ -133,7 +139,7 @@ const Summaries = () => {
                           {(decisions as string[]).map((item, i) => (
                             <li key={i} className="text-sm text-foreground flex items-start gap-2">
                               <span className="text-warning mt-0.5 shrink-0">•</span>
-                              <span>{item}</span>
+                              <span className="break-words">{item}</span>
                             </li>
                           ))}
                         </ul>
@@ -142,7 +148,7 @@ const Summaries = () => {
 
                     {/* Action Items */}
                     {actionItems.length > 0 && (
-                      <div className="p-4 rounded-lg bg-accent/5 border border-accent/10">
+                      <div className="p-3 sm:p-4 rounded-lg bg-accent/5 border border-accent/10">
                         <p className="text-xs font-semibold text-accent mb-3 flex items-center gap-1.5 uppercase tracking-wide">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Action Items
                         </p>
@@ -150,7 +156,7 @@ const Summaries = () => {
                           {(actionItems as string[]).map((item, i) => (
                             <li key={i} className="text-sm text-foreground flex items-start gap-2">
                               <span className="text-accent mt-0.5 shrink-0">•</span>
-                              <span>{item}</span>
+                              <span className="break-words">{item}</span>
                             </li>
                           ))}
                         </ul>
