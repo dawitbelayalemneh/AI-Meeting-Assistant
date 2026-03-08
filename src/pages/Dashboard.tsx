@@ -13,8 +13,10 @@ import { useNavigate } from "react-router-dom";
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<any>(null);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
 
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ["meetings"],
