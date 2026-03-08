@@ -7,8 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-meetings`;
-
 const SUGGESTIONS = [
   "What action items are still pending?",
   "Summarize my last completed meeting",
@@ -53,30 +51,34 @@ export function MeetingChat() {
     };
 
     try {
+      // Get the current session token for auth
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        upsertAssistant("You need to be logged in to use the AI chat.");
-        setIsLoading(false);
-        return;
-      }
+      const token = session?.access_token;
 
-      const resp = await fetch(CHAT_URL, {
+      const chatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-meetings`;
+      const resp = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          "Authorization": `Bearer ${token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ messages: allMessages }),
       });
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({ error: "Request failed" }));
+        console.error("Chat error response:", resp.status, err);
         upsertAssistant(err.error || "Something went wrong. Please try again.");
         setIsLoading(false);
         return;
       }
 
-      if (!resp.body) throw new Error("No response body");
+      if (!resp.body) {
+        upsertAssistant("No response received.");
+        setIsLoading(false);
+        return;
+      }
 
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
@@ -108,6 +110,7 @@ export function MeetingChat() {
         }
       }
 
+      // Final flush
       if (textBuffer.trim()) {
         for (let raw of textBuffer.split("\n")) {
           if (!raw) continue;
@@ -122,6 +125,10 @@ export function MeetingChat() {
             if (content) upsertAssistant(content);
           } catch { /* ignore */ }
         }
+      }
+
+      if (!assistantSoFar) {
+        upsertAssistant("I couldn't generate a response. Please try again.");
       }
     } catch (e) {
       console.error("Chat error:", e);
