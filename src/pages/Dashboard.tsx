@@ -364,6 +364,8 @@ const Dashboard = () => {
         initialData={editingMeeting}
         loading={saveMutation.isPending}
       />
+
+      <MeetingChat />
     </div>
   );
 };
