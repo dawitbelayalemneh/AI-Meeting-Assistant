@@ -1,15 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { MeetingsPerWeekChart, TaskStatusChart } from "@/components/DashboardCharts";
+import { ActionItemsPanel, CompletedSummariesPanel } from "@/components/DashboardPanels";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell, FileText } from "lucide-react";
-import { isBefore, addMinutes, formatDistanceToNow } from "date-fns";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle } from "lucide-react";
+import { isBefore, addMinutes, formatDistanceToNow, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
@@ -187,12 +190,48 @@ const Dashboard = () => {
   };
 
   const scheduled = meetings.filter((m) => m.status === "scheduled");
-  const upcomingSoon = meetings.filter((m) => {
-    if (m.status !== "scheduled") return false;
+  const completed = meetings.filter((m) => m.status === "completed");
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    return meetings
+      .filter((m) => m.status === "scheduled" && isBefore(now, new Date(m.date)))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [meetings]);
+  const upcomingSoon = upcoming.filter((m) => {
     const meetingDate = new Date(m.date);
     const now = new Date();
-    return isBefore(now, meetingDate) && meetingDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
+    return meetingDate.getTime() - now.getTime() < 24 * 60 * 60 * 1000;
   });
+  const allActionItems = useMemo(() => {
+    return meetings.reduce((total, m) => {
+      return total + (Array.isArray(m.ai_action_items) ? m.ai_action_items.length : 0);
+    }, 0);
+  }, [meetings]);
+
+  const renderMeetingGrid = (list: typeof meetings) => {
+    if (list.length === 0) {
+      return (
+        <div className="text-center py-12 glass-card">
+          <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground text-sm">No meetings in this category</p>
+        </div>
+      );
+    }
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {list.map((meeting) => (
+          <MeetingCard
+            key={meeting.id}
+            meeting={meeting}
+            onEdit={handleEdit}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            onAiProcess={(id) => aiMutation.mutate(id)}
+            aiLoading={analyzingId === meeting.id}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -218,34 +257,74 @@ const Dashboard = () => {
       {/* Main */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
           <div className="glass-card p-5">
             <p className="text-sm text-muted-foreground">Total</p>
             <p className="text-3xl font-heading font-bold text-foreground mt-1">{meetings.length}</p>
           </div>
           <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground">Upcoming</p>
-            <p className="text-3xl font-heading font-bold text-primary mt-1">{scheduled.length}</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Upcoming</p>
+            <p className="text-3xl font-heading font-bold text-primary mt-1">{upcoming.length}</p>
           </div>
           <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Bell className="w-3.5 h-3.5" /> Today
-            </p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> Today</p>
             <p className="text-3xl font-heading font-bold text-warning mt-1">{upcomingSoon.length}</p>
           </div>
           <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> Analyzed
-            </p>
-            <p className="text-3xl font-heading font-bold text-accent mt-1">
-              {meetings.filter((m) => m.ai_summary).length}
-            </p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Completed</p>
+            <p className="text-3xl font-heading font-bold text-success mt-1">{completed.length}</p>
+          </div>
+          <div className="glass-card p-5">
+            <p className="text-sm text-muted-foreground flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Action Items</p>
+            <p className="text-3xl font-heading font-bold text-accent mt-1">{allActionItems}</p>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-heading font-semibold text-foreground">Your Meetings</h2>
+        {/* Charts row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <MeetingsPerWeekChart meetings={meetings} />
+          <TaskStatusChart meetings={meetings} />
+        </div>
+
+        {/* Panels: Upcoming + Completed summaries + Action items */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+          {/* Upcoming meetings mini-list */}
+          <div className="glass-card p-5">
+            <h3 className="font-heading font-semibold text-foreground text-sm mb-4 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-primary" /> Upcoming Meetings
+            </h3>
+            {upcoming.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground text-sm">No upcoming meetings</div>
+            ) : (
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {upcoming.slice(0, 6).map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => handleEdit(m)}
+                    className="w-full text-left p-3 rounded-lg bg-primary/5 border border-primary/10 hover:bg-primary/10 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-foreground truncate">{m.title}</span>
+                      <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
+                        {formatDistanceToNow(new Date(m.date), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {format(new Date(m.date), "MMM d 'at' h:mm a")} · {m.duration_minutes || 30} min
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <CompletedSummariesPanel meetings={meetings} />
+          <ActionItemsPanel meetings={meetings} />
+        </div>
+
+        {/* Full meeting list with tabs */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-heading font-semibold text-foreground">All Meetings</h2>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => navigate("/summaries")}>
               <FileText className="w-4 h-4 mr-1" /> Summaries
@@ -256,32 +335,22 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Meeting List */}
-        {isLoading ? (
-          <div className="text-center py-16 text-muted-foreground">Loading meetings...</div>
-        ) : meetings.length === 0 ? (
-          <div className="text-center py-16 glass-card">
-            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-heading font-semibold text-foreground mb-2">No meetings yet</h3>
-            <p className="text-muted-foreground mb-4">Create your first meeting to get started</p>
-            <Button onClick={handleNew}>
-              <Plus className="w-4 h-4 mr-1" /> Create Meeting
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {meetings.map((meeting) => (
-              <MeetingCard
-                key={meeting.id}
-                meeting={meeting}
-                onEdit={handleEdit}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                onAiProcess={(id) => aiMutation.mutate(id)}
-                aiLoading={analyzingId === meeting.id}
-              />
-            ))}
-          </div>
-        )}
+        <Tabs defaultValue="all" className="mb-8">
+          <TabsList>
+            <TabsTrigger value="all">All ({meetings.length})</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
+          </TabsList>
+          <TabsContent value="all" className="mt-4">
+            {renderMeetingGrid(meetings)}
+          </TabsContent>
+          <TabsContent value="upcoming" className="mt-4">
+            {renderMeetingGrid(upcoming)}
+          </TabsContent>
+          <TabsContent value="completed" className="mt-4">
+            {renderMeetingGrid(completed)}
+          </TabsContent>
+        </Tabs>
       </main>
 
       <MeetingDialog
