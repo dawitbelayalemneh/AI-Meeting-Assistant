@@ -2,3 +2,6 @@ project_id = "tjloryelscuhlnvyipjc"
 
 [functions.analyze-meeting]
 verify_jwt = false
+
+[functions.chat-meetings]
+verify_jwt = false
