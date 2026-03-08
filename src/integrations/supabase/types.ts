@@ -18,6 +18,8 @@ export type Database = {
         Row: {
           agenda: Json | null
           ai_action_items: Json | null
+          ai_decisions: Json | null
+          ai_key_points: Json | null
           ai_summary: string | null
           created_at: string
           date: string
@@ -35,6 +37,8 @@ export type Database = {
         Insert: {
           agenda?: Json | null
           ai_action_items?: Json | null
+          ai_decisions?: Json | null
+          ai_key_points?: Json | null
           ai_summary?: string | null
           created_at?: string
           date: string
@@ -52,6 +56,8 @@ export type Database = {
         Update: {
           agenda?: Json | null
           ai_action_items?: Json | null
+          ai_decisions?: Json | null
+          ai_key_points?: Json | null
           ai_summary?: string | null
           created_at?: string
           date?: string
