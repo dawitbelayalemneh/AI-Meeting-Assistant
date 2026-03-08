@@ -193,9 +193,14 @@ const Dashboard = () => {
         {/* Actions */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-heading font-semibold text-foreground">Your Meetings</h2>
-          <Button onClick={handleNew}>
-            <Plus className="w-4 h-4 mr-1" /> New Meeting
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate("/summaries")}>
+              <FileText className="w-4 h-4 mr-1" /> Summaries
+            </Button>
+            <Button onClick={handleNew}>
+              <Plus className="w-4 h-4 mr-1" /> New Meeting
+            </Button>
+          </div>
         </div>
 
         {/* Meeting List */}
