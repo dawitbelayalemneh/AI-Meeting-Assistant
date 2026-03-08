@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow, isBefore, addMinutes } from "date-fns";
-import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2, Users, ListChecks, Bell } from "lucide-react";
+import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2, Users, ListChecks, Bell, Lightbulb, Gavel } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -12,6 +12,8 @@ interface Meeting {
   notes: string | null;
   ai_summary: string | null;
   ai_action_items: any;
+  ai_key_points: any;
+  ai_decisions: any;
   status: string;
   participants: any;
   agenda: any;
@@ -23,6 +25,7 @@ interface MeetingCardProps {
   onEdit: (meeting: Meeting) => void;
   onDelete: (id: string) => void;
   onAiProcess: (id: string) => void;
+  aiLoading?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -36,17 +39,21 @@ function getReminderStatus(date: string, reminderMinutes: number | null) {
   const meetingDate = new Date(date);
   const reminderTime = addMinutes(meetingDate, -reminderMinutes);
   const now = new Date();
-  if (isBefore(meetingDate, now)) return null; // meeting passed
+  if (isBefore(meetingDate, now)) return null;
   if (isBefore(now, reminderTime)) {
     return { label: `Reminder ${formatDistanceToNow(reminderTime, { addSuffix: true })}`, urgent: false };
   }
   return { label: `Starting ${formatDistanceToNow(meetingDate, { addSuffix: true })}`, urgent: true };
 }
 
-export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingCardProps) {
+export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading }: MeetingCardProps) {
   const participants = Array.isArray(meeting.participants) ? meeting.participants : [];
   const agenda = Array.isArray(meeting.agenda) ? meeting.agenda : [];
+  const keyPoints = Array.isArray(meeting.ai_key_points) ? meeting.ai_key_points : [];
+  const decisions = Array.isArray(meeting.ai_decisions) ? meeting.ai_decisions : [];
+  const actionItems = Array.isArray(meeting.ai_action_items) ? meeting.ai_action_items : [];
   const reminder = meeting.status === "scheduled" ? getReminderStatus(meeting.date, meeting.reminder_minutes) : null;
+  const hasAiContent = meeting.ai_summary || keyPoints.length > 0 || decisions.length > 0 || actionItems.length > 0;
 
   return (
     <div className="glass-card p-5 animate-slide-up hover:shadow-lg transition-shadow">
@@ -82,7 +89,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
         {participants.length > 0 && (
           <span className="flex items-center gap-1">
             <Users className="w-3.5 h-3.5" />
-            {participants.length} participant{participants.length !== 1 ? "s" : ""}
+            {participants.length}
           </span>
         )}
       </div>
@@ -91,9 +98,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
       {participants.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-1.5">
           {(participants as string[]).map((p) => (
-            <Badge key={p} variant="secondary" className="text-xs">
-              {p}
-            </Badge>
+            <Badge key={p} variant="secondary" className="text-xs">{p}</Badge>
           ))}
         </div>
       )}
@@ -107,8 +112,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
           <ol className="space-y-1">
             {(agenda as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="font-medium text-muted-foreground">{i + 1}.</span>
-                {item}
+                <span className="font-medium text-muted-foreground">{i + 1}.</span>{item}
               </li>
             ))}
           </ol>
@@ -117,7 +121,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
 
       {/* AI Summary */}
       {meeting.ai_summary && (
-        <div className="mb-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
+        <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
           <p className="text-xs font-medium text-primary mb-1 flex items-center gap-1">
             <Sparkles className="w-3 h-3" /> AI Summary
           </p>
@@ -125,17 +129,48 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
         </div>
       )}
 
-      {/* AI Action Items */}
-      {meeting.ai_action_items && Array.isArray(meeting.ai_action_items) && meeting.ai_action_items.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg bg-accent/5 border border-accent/10">
+      {/* Key Points */}
+      {keyPoints.length > 0 && (
+        <div className="mb-3 p-3 rounded-lg bg-primary/5 border border-primary/10">
+          <p className="text-xs font-medium text-primary mb-2 flex items-center gap-1">
+            <Lightbulb className="w-3 h-3" /> Key Points
+          </p>
+          <ul className="space-y-1">
+            {(keyPoints as string[]).map((item, i) => (
+              <li key={i} className="text-sm text-foreground flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>{item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Decisions */}
+      {decisions.length > 0 && (
+        <div className="mb-3 p-3 rounded-lg bg-warning/5 border border-warning/10">
+          <p className="text-xs font-medium text-warning mb-2 flex items-center gap-1">
+            <Gavel className="w-3 h-3" /> Decisions
+          </p>
+          <ul className="space-y-1">
+            {(decisions as string[]).map((item, i) => (
+              <li key={i} className="text-sm text-foreground flex items-start gap-2">
+                <span className="text-warning mt-0.5">•</span>{item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Action Items */}
+      {actionItems.length > 0 && (
+        <div className="mb-3 p-3 rounded-lg bg-accent/5 border border-accent/10">
           <p className="text-xs font-medium text-accent mb-2 flex items-center gap-1">
             <CheckCircle2 className="w-3 h-3" /> Action Items
           </p>
           <ul className="space-y-1">
-            {(meeting.ai_action_items as string[]).map((item, i) => (
+            {(actionItems as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-accent mt-0.5">•</span>
-                {item}
+                <span className="text-accent mt-0.5">•</span>{item}
               </li>
             ))}
           </ul>
@@ -146,9 +181,16 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess }: MeetingC
         <Button variant="ghost" size="sm" onClick={() => onEdit(meeting)}>
           <Edit className="w-4 h-4 mr-1" /> Edit
         </Button>
-        {meeting.notes && !meeting.ai_summary && (
-          <Button variant="ghost" size="sm" onClick={() => onAiProcess(meeting.id)} className="text-primary">
-            <Sparkles className="w-4 h-4 mr-1" /> Analyze
+        {meeting.notes && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onAiProcess(meeting.id)}
+            className="text-primary"
+            disabled={aiLoading}
+          >
+            <Sparkles className="w-4 h-4 mr-1" />
+            {aiLoading ? "Analyzing..." : hasAiContent ? "Re-analyze" : "Analyze"}
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={() => onDelete(meeting.id)} className="text-destructive ml-auto">

@@ -32,7 +32,7 @@ serve(async (req) => {
       });
     }
 
-    const { meetingId, notes, title } = await req.json();
+    const { meetingId, notes, title, agenda } = await req.json();
     if (!meetingId || !notes) {
       return new Response(JSON.stringify({ error: "Missing meetingId or notes" }), {
         status: 400,
@@ -42,6 +42,10 @@ serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const agendaContext = Array.isArray(agenda) && agenda.length > 0
+      ? `\n\nAgenda:\n${agenda.map((a: string, i: number) => `${i + 1}. ${a}`).join("\n")}`
+      : "";
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -54,11 +58,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a meeting assistant. Analyze meeting notes and provide a concise summary and actionable items.",
+            content: "You are a professional meeting assistant. Analyze meeting notes thoroughly and extract a comprehensive summary, key discussion points, decisions made, and actionable items with owners where possible.",
           },
           {
             role: "user",
-            content: `Meeting: "${title}"\n\nNotes:\n${notes}\n\nProvide a brief summary and list of action items.`,
+            content: `Meeting: "${title}"${agendaContext}\n\nNotes:\n${notes}\n\nAnalyze these notes and extract the summary, key points, decisions, and action items.`,
           },
         ],
         tools: [
@@ -66,18 +70,31 @@ serve(async (req) => {
             type: "function",
             function: {
               name: "analyze_meeting",
-              description: "Return meeting analysis with summary and action items",
+              description: "Return comprehensive meeting analysis",
               parameters: {
                 type: "object",
                 properties: {
-                  summary: { type: "string", description: "A concise 2-3 sentence summary of the meeting" },
+                  summary: {
+                    type: "string",
+                    description: "A concise 2-4 sentence executive summary of the meeting",
+                  },
+                  key_points: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Key discussion points and topics covered in the meeting",
+                  },
+                  decisions: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Important decisions that were made during the meeting",
+                  },
                   action_items: {
                     type: "array",
                     items: { type: "string" },
-                    description: "List of actionable tasks from the meeting",
+                    description: "Actionable tasks with responsible person if mentioned",
                   },
                 },
-                required: ["summary", "action_items"],
+                required: ["summary", "key_points", "decisions", "action_items"],
                 additionalProperties: false,
               },
             },
@@ -90,28 +107,27 @@ serve(async (req) => {
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      const errText = await aiResponse.text();
+      console.error("AI gateway error:", aiResponse.status, errText);
       throw new Error("AI gateway error");
     }
 
     const aiData = await aiResponse.json();
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let analysis = { summary: "", action_items: [] as string[] };
+    let analysis = { summary: "", key_points: [] as string[], decisions: [] as string[], action_items: [] as string[] };
 
     if (toolCall?.function?.arguments) {
       analysis = JSON.parse(toolCall.function.arguments);
     }
 
-    // Update meeting with AI results using service role
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -121,6 +137,8 @@ serve(async (req) => {
       .from("meetings")
       .update({
         ai_summary: analysis.summary,
+        ai_key_points: analysis.key_points,
+        ai_decisions: analysis.decisions,
         ai_action_items: analysis.action_items,
       })
       .eq("id", meetingId)
@@ -134,8 +152,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("analyze-meeting error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
