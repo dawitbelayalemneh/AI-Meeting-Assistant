@@ -341,6 +341,9 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-heading font-semibold text-foreground">All Meetings</h2>
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => navigate("/about")} className="flex-1 sm:flex-none">
+              <BookOpen className="w-4 h-4 mr-1" /> About
+            </Button>
             <Button variant="outline" onClick={() => navigate("/summaries")} className="flex-1 sm:flex-none">
               <FileText className="w-4 h-4 mr-1" /> Summaries
             </Button>
