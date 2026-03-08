@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { MeetingChat } from "@/components/MeetingChat";
 import { MeetingsPerWeekChart, TaskStatusChart } from "@/components/DashboardCharts";
 import { ActionItemsPanel, CompletedSummariesPanel } from "@/components/DashboardPanels";
 import { useNotifications } from "@/hooks/useNotifications";
