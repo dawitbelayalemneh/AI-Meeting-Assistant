@@ -1,7 +1,8 @@
 import { format, formatDistanceToNow, isBefore, addMinutes } from "date-fns";
-import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2, Users, ListChecks, Bell, Lightbulb, Gavel } from "lucide-react";
+import { Calendar, Clock, Trash2, Edit, Sparkles, CheckCircle2, Users, ListChecks, Bell, Lightbulb, Gavel, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { exportMeetingPdf } from "@/lib/exportPdf";
 
 interface Meeting {
   id: string;
@@ -56,39 +57,39 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
   const hasAiContent = meeting.ai_summary || keyPoints.length > 0 || decisions.length > 0 || actionItems.length > 0;
 
   return (
-    <div className="glass-card p-5 animate-slide-up hover:shadow-lg transition-shadow">
+    <div className="glass-card p-4 sm:p-5 animate-slide-up hover:shadow-lg transition-shadow">
       {/* Reminder banner */}
       {reminder && (
-        <div className={`-mx-5 -mt-5 mb-4 px-5 py-2 rounded-t-xl flex items-center gap-2 text-xs font-medium ${reminder.urgent ? "bg-warning/15 text-warning" : "bg-primary/5 text-primary"}`}>
+        <div className={`-mx-4 sm:-mx-5 -mt-4 sm:-mt-5 mb-4 px-4 sm:px-5 py-2 rounded-t-xl flex items-center gap-2 text-xs font-medium ${reminder.urgent ? "bg-warning/15 text-warning" : "bg-primary/5 text-primary"}`}>
           <Bell className="w-3 h-3" />
           {reminder.label}
         </div>
       )}
 
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex-1">
-          <h3 className="font-heading font-semibold text-foreground text-lg">{meeting.title}</h3>
+      <div className="flex items-start justify-between mb-3 gap-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-heading font-semibold text-foreground text-base sm:text-lg truncate">{meeting.title}</h3>
           {meeting.description && (
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{meeting.description}</p>
           )}
         </div>
-        <Badge variant="outline" className={statusColors[meeting.status] || ""}>
+        <Badge variant="outline" className={`${statusColors[meeting.status] || ""} shrink-0 text-xs`}>
           {meeting.status}
         </Badge>
       </div>
 
-      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4 flex-wrap">
+      <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground mb-4 flex-wrap">
         <span className="flex items-center gap-1">
-          <Calendar className="w-3.5 h-3.5" />
+          <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           {format(new Date(meeting.date), "MMM d, yyyy 'at' h:mm a")}
         </span>
         <span className="flex items-center gap-1">
-          <Clock className="w-3.5 h-3.5" />
+          <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           {meeting.duration_minutes || 30} min
         </span>
         {participants.length > 0 && (
           <span className="flex items-center gap-1">
-            <Users className="w-3.5 h-3.5" />
+            <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             {participants.length}
           </span>
         )}
@@ -112,7 +113,8 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
           <ol className="space-y-1">
             {(agenda as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="font-medium text-muted-foreground">{i + 1}.</span>{item}
+                <span className="font-medium text-muted-foreground">{i + 1}.</span>
+                <span className="break-words">{item}</span>
               </li>
             ))}
           </ol>
@@ -138,7 +140,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
           <ul className="space-y-1">
             {(keyPoints as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-primary mt-0.5">•</span>{item}
+                <span className="text-primary mt-0.5">•</span><span className="break-words">{item}</span>
               </li>
             ))}
           </ul>
@@ -154,7 +156,7 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
           <ul className="space-y-1">
             {(decisions as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-warning mt-0.5">•</span>{item}
+                <span className="text-warning mt-0.5">•</span><span className="break-words">{item}</span>
               </li>
             ))}
           </ul>
@@ -170,14 +172,14 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
           <ul className="space-y-1">
             {(actionItems as string[]).map((item, i) => (
               <li key={i} className="text-sm text-foreground flex items-start gap-2">
-                <span className="text-accent mt-0.5">•</span>{item}
+                <span className="text-accent mt-0.5">•</span><span className="break-words">{item}</span>
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      <div className="flex items-center gap-2 pt-2 border-t border-border">
+      <div className="flex items-center gap-1 sm:gap-2 pt-2 border-t border-border flex-wrap">
         <Button variant="ghost" size="sm" onClick={() => onEdit(meeting)}>
           <Edit className="w-4 h-4 mr-1" /> Edit
         </Button>
@@ -191,6 +193,11 @@ export function MeetingCard({ meeting, onEdit, onDelete, onAiProcess, aiLoading 
           >
             <Sparkles className="w-4 h-4 mr-1" />
             {aiLoading ? "Analyzing..." : hasAiContent ? "Re-analyze" : "Analyze"}
+          </Button>
+        )}
+        {hasAiContent && (
+          <Button variant="ghost" size="sm" onClick={() => exportMeetingPdf(meeting)} className="text-muted-foreground">
+            <Download className="w-4 h-4 mr-1" /> PDF
           </Button>
         )}
         <Button variant="ghost" size="sm" onClick={() => onDelete(meeting.id)} className="text-destructive ml-auto">

@@ -12,7 +12,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle, Menu, X } from "lucide-react";
 import { isBefore, addMinutes, formatDistanceToNow, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -24,6 +24,7 @@ const Dashboard = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<any>(null);
   const [analyzingId, setAnalyzingId] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const firedReminders = useRef<Set<string>>(new Set());
 
   const { data: meetings = [], isLoading } = useQuery({
@@ -50,7 +51,6 @@ const Dashboard = () => {
         if (isBefore(meetingDate, now)) return;
 
         const reminderMin = m.reminder_minutes || 15;
-        // Check configured reminder
         const reminderTime = addMinutes(meetingDate, -reminderMin);
         const reminderKey = `${m.id}-${reminderMin}`;
         const diffReminder = Math.abs(now.getTime() - reminderTime.getTime());
@@ -64,13 +64,9 @@ const Dashboard = () => {
             message: `"${m.title}" starts ${formatDistanceToNow(meetingDate, { addSuffix: true })}`,
             meetingId: m.id,
           });
-          toast.warning(`⏰ "${m.title}" starts in ${timeLabel}!`, {
-            id: reminderKey,
-            duration: 15000,
-          });
+          toast.warning(`⏰ "${m.title}" starts in ${timeLabel}!`, { id: reminderKey, duration: 15000 });
         }
 
-        // Also fire a "starting now" alert at 1 min before
         const startingSoonKey = `${m.id}-starting`;
         const diffStart = meetingDate.getTime() - now.getTime();
         if (diffStart > 0 && diffStart < 60000 && !firedReminders.current.has(startingSoonKey)) {
@@ -81,10 +77,7 @@ const Dashboard = () => {
             message: `"${m.title}" is about to begin`,
             meetingId: m.id,
           });
-          toast.warning(`🔴 "${m.title}" is starting now!`, {
-            id: startingSoonKey,
-            duration: 20000,
-          });
+          toast.warning(`🔴 "${m.title}" is starting now!`, { id: startingSoonKey, duration: 20000 });
         }
       });
     };
@@ -219,7 +212,7 @@ const Dashboard = () => {
       );
     }
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {list.map((meeting) => (
           <MeetingCard
             key={meeting.id}
@@ -237,60 +230,78 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-              <Calendar className="w-4.5 h-4.5 text-primary-foreground" />
+      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary flex items-center justify-center">
+              <Calendar className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-primary-foreground" />
             </div>
-            <h1 className="text-xl font-heading font-bold text-foreground">MeetingAI</h1>
+            <h1 className="text-lg sm:text-xl font-heading font-bold text-foreground">MeetingAI</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <NotificationCenter />
-            <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <span className="text-sm text-muted-foreground hidden md:block max-w-[180px] truncate">{user?.email}</span>
+            {/* Mobile menu toggle */}
+            <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={signOut} className="hidden sm:flex">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
         </div>
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden border-t border-border px-4 py-3 bg-card space-y-2 animate-fade-in">
+            <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" size="sm" onClick={() => { navigate("/summaries"); setMobileMenuOpen(false); }} className="justify-start">
+                <FileText className="w-4 h-4 mr-2" /> Summaries
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { signOut(); setMobileMenuOpen(false); }} className="justify-start text-destructive">
+                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+              </Button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground">Total</p>
-            <p className="text-3xl font-heading font-bold text-foreground mt-1">{meetings.length}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="glass-card p-4 sm:p-5">
+            <p className="text-xs sm:text-sm text-muted-foreground">Total</p>
+            <p className="text-2xl sm:text-3xl font-heading font-bold text-foreground mt-1">{meetings.length}</p>
           </div>
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Upcoming</p>
-            <p className="text-3xl font-heading font-bold text-primary mt-1">{upcoming.length}</p>
+          <div className="glass-card p-4 sm:p-5">
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Upcoming</p>
+            <p className="text-2xl sm:text-3xl font-heading font-bold text-primary mt-1">{upcoming.length}</p>
           </div>
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> Today</p>
-            <p className="text-3xl font-heading font-bold text-warning mt-1">{upcomingSoon.length}</p>
+          <div className="glass-card p-4 sm:p-5">
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1"><Bell className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Today</p>
+            <p className="text-2xl sm:text-3xl font-heading font-bold text-warning mt-1">{upcomingSoon.length}</p>
           </div>
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Completed</p>
-            <p className="text-3xl font-heading font-bold text-success mt-1">{completed.length}</p>
+          <div className="glass-card p-4 sm:p-5">
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1"><CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Completed</p>
+            <p className="text-2xl sm:text-3xl font-heading font-bold text-success mt-1">{completed.length}</p>
           </div>
-          <div className="glass-card p-5">
-            <p className="text-sm text-muted-foreground flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> Action Items</p>
-            <p className="text-3xl font-heading font-bold text-accent mt-1">{allActionItems}</p>
+          <div className="glass-card p-4 sm:p-5 col-span-2 sm:col-span-1">
+            <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Action Items</p>
+            <p className="text-2xl sm:text-3xl font-heading font-bold text-accent mt-1">{allActionItems}</p>
           </div>
         </div>
 
         {/* Charts row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <MeetingsPerWeekChart meetings={meetings} />
           <TaskStatusChart meetings={meetings} />
         </div>
 
-        {/* Panels: Upcoming + Completed summaries + Action items */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        {/* Panels */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {/* Upcoming meetings mini-list */}
-          <div className="glass-card p-5">
+          <div className="glass-card p-4 sm:p-5">
             <h3 className="font-heading font-semibold text-foreground text-sm mb-4 flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-primary" /> Upcoming Meetings
             </h3>
@@ -324,23 +335,23 @@ const Dashboard = () => {
         </div>
 
         {/* Full meeting list with tabs */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-lg font-heading font-semibold text-foreground">All Meetings</h2>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => navigate("/summaries")}>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => navigate("/summaries")} className="flex-1 sm:flex-none">
               <FileText className="w-4 h-4 mr-1" /> Summaries
             </Button>
-            <Button onClick={handleNew}>
+            <Button onClick={handleNew} className="flex-1 sm:flex-none">
               <Plus className="w-4 h-4 mr-1" /> New Meeting
             </Button>
           </div>
         </div>
 
         <Tabs defaultValue="all" className="mb-8">
-          <TabsList>
-            <TabsTrigger value="all">All ({meetings.length})</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming ({upcoming.length})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({completed.length})</TabsTrigger>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="all" className="flex-1 sm:flex-none">All ({meetings.length})</TabsTrigger>
+            <TabsTrigger value="upcoming" className="flex-1 sm:flex-none">Upcoming ({upcoming.length})</TabsTrigger>
+            <TabsTrigger value="completed" className="flex-1 sm:flex-none">Completed ({completed.length})</TabsTrigger>
           </TabsList>
           <TabsContent value="all" className="mt-4">
             {renderMeetingGrid(meetings)}

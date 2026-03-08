@@ -105,7 +105,7 @@ export function MeetingDialog({ open, onClose, onSave, initialData, loading }: M
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh]">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle className="font-heading">{initialData ? "Edit Meeting" : "New Meeting"}</DialogTitle>
         </DialogHeader>
@@ -123,9 +123,9 @@ export function MeetingDialog({ open, onClose, onSave, initialData, loading }: M
               <Input id="description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional description" />
             </div>
 
-            {/* Date, Duration, Reminder */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-2 col-span-1">
+            {/* Date, Duration, Reminder — stack on mobile */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="space-y-2">
                 <Label htmlFor="date">Date & Time</Label>
                 <Input id="date" type="datetime-local" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} required />
               </div>
@@ -192,8 +192,8 @@ export function MeetingDialog({ open, onClose, onSave, initialData, loading }: M
               {form.participants.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {form.participants.map((p) => (
-                    <Badge key={p} variant="secondary" className="pr-1 gap-1">
-                      {p}
+                    <Badge key={p} variant="secondary" className="pr-1 gap-1 text-xs">
+                      <span className="truncate max-w-[140px]">{p}</span>
                       <button type="button" onClick={() => removeParticipant(p)} className="ml-0.5 hover:bg-muted rounded-full p-0.5">
                         <X className="w-3 h-3" />
                       </button>
@@ -222,8 +222,8 @@ export function MeetingDialog({ open, onClose, onSave, initialData, loading }: M
                   {form.agenda.map((item, i) => (
                     <li key={i} className="flex items-center gap-2 text-sm bg-secondary/50 rounded-lg px-3 py-2">
                       <span className="font-medium text-muted-foreground min-w-[1.5rem]">{i + 1}.</span>
-                      <span className="flex-1 text-foreground">{item}</span>
-                      <button type="button" onClick={() => removeAgendaItem(i)} className="text-muted-foreground hover:text-destructive">
+                      <span className="flex-1 text-foreground truncate">{item}</span>
+                      <button type="button" onClick={() => removeAgendaItem(i)} className="text-muted-foreground hover:text-destructive shrink-0">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </li>
