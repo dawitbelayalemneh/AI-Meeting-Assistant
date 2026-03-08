@@ -239,6 +239,9 @@ const Dashboard = () => {
             <h1 className="text-lg sm:text-xl font-heading font-bold text-foreground">MeetingAI</h1>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/about")} className="hidden sm:flex">
+              <BookOpen className="w-4 h-4 mr-1" /> About
+            </Button>
             <NotificationCenter />
             <span className="text-sm text-muted-foreground hidden md:block max-w-[180px] truncate">{user?.email}</span>
             {/* Mobile menu toggle */}
