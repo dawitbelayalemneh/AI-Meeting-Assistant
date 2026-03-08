@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,8 +6,9 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText } from "lucide-react";
 import { isBefore, addMinutes } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
