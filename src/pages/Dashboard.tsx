@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,14 +6,17 @@ import { MeetingCard } from "@/components/MeetingCard";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText } from "lucide-react";
 import { isBefore, addMinutes } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMeeting, setEditingMeeting] = useState<any>(null);
+  const [analyzingId, setAnalyzingId] = useState<string | null>(null);
 
   const { data: meetings = [], isLoading } = useQuery({
     queryKey: ["meetings"],
@@ -59,19 +62,30 @@ const Dashboard = () => {
         agenda: formData.agenda,
         reminder_minutes: formData.reminder_minutes,
       };
+      let savedMeeting: any = null;
       if (editingMeeting) {
-        const { error } = await supabase.from("meetings").update(payload).eq("id", editingMeeting.id);
+        const { data, error } = await supabase.from("meetings").update(payload).eq("id", editingMeeting.id).select().single();
         if (error) throw error;
+        savedMeeting = data;
       } else {
-        const { error } = await supabase.from("meetings").insert({ ...payload, user_id: user!.id });
+        const { data, error } = await supabase.from("meetings").insert({ ...payload, user_id: user!.id }).select().single();
         if (error) throw error;
+        savedMeeting = data;
       }
+      return savedMeeting;
     },
-    onSuccess: () => {
+    onSuccess: (savedMeeting) => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       setDialogOpen(false);
+      const wasEditing = !!editingMeeting;
       setEditingMeeting(null);
-      toast.success(editingMeeting ? "Meeting updated" : "Meeting created");
+      toast.success(wasEditing ? "Meeting updated" : "Meeting created");
+
+      // Auto-analyze when meeting is completed and has notes but no summary yet
+      if (savedMeeting.status === "completed" && savedMeeting.notes && !savedMeeting.ai_summary) {
+        toast.info("Generating AI summary...");
+        aiMutation.mutate(savedMeeting.id);
+      }
     },
     onError: (err: any) => toast.error(err.message),
   });
@@ -90,10 +104,11 @@ const Dashboard = () => {
 
   const aiMutation = useMutation({
     mutationFn: async (meetingId: string) => {
+      setAnalyzingId(meetingId);
       const meeting = meetings.find((m) => m.id === meetingId);
       if (!meeting?.notes) throw new Error("No notes to analyze");
       const { data, error } = await supabase.functions.invoke("analyze-meeting", {
-        body: { meetingId, notes: meeting.notes, title: meeting.title },
+        body: { meetingId, notes: meeting.notes, title: meeting.title, agenda: meeting.agenda },
       });
       if (error) throw error;
       return data;
@@ -101,8 +116,12 @@ const Dashboard = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
       toast.success("AI analysis complete!");
+      setAnalyzingId(null);
     },
-    onError: (err: any) => toast.error(err.message),
+    onError: (err: any) => {
+      toast.error(err.message);
+      setAnalyzingId(null);
+    },
   });
 
   const handleEdit = (meeting: any) => {
@@ -174,9 +193,14 @@ const Dashboard = () => {
         {/* Actions */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-heading font-semibold text-foreground">Your Meetings</h2>
-          <Button onClick={handleNew}>
-            <Plus className="w-4 h-4 mr-1" /> New Meeting
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => navigate("/summaries")}>
+              <FileText className="w-4 h-4 mr-1" /> Summaries
+            </Button>
+            <Button onClick={handleNew}>
+              <Plus className="w-4 h-4 mr-1" /> New Meeting
+            </Button>
+          </div>
         </div>
 
         {/* Meeting List */}
@@ -200,6 +224,7 @@ const Dashboard = () => {
                 onEdit={handleEdit}
                 onDelete={(id) => deleteMutation.mutate(id)}
                 onAiProcess={(id) => aiMutation.mutate(id)}
+                aiLoading={analyzingId === meeting.id}
               />
             ))}
           </div>
