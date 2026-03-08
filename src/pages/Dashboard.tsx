@@ -12,7 +12,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle, Menu, X } from "lucide-react";
+import { Plus, Calendar, LogOut, Sparkles, Bell, FileText, Clock, CheckCircle, Menu, X, BookOpen } from "lucide-react";
 import { isBefore, addMinutes, formatDistanceToNow, format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
@@ -257,6 +257,9 @@ const Dashboard = () => {
             <div className="flex flex-col gap-2">
               <Button variant="outline" size="sm" onClick={() => { navigate("/summaries"); setMobileMenuOpen(false); }} className="justify-start">
                 <FileText className="w-4 h-4 mr-2" /> Summaries
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { navigate("/docs"); setMobileMenuOpen(false); }} className="justify-start">
+                <BookOpen className="w-4 h-4 mr-2" /> Documentation
               </Button>
               <Button variant="outline" size="sm" onClick={() => { signOut(); setMobileMenuOpen(false); }} className="justify-start text-destructive">
                 <LogOut className="w-4 h-4 mr-2" /> Sign Out
